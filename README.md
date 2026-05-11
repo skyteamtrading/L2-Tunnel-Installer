@@ -35,7 +35,7 @@
 
 
 
-# ========== معماری روش‌ها (برای مستندات) ==========
+# معماری روش‌ها (برای مستندات) 
 # روش ۱: Rathole + WaterWall
 ایران: TAP ↔ WaterWall Client ↔ Rathole Client ↔ اینترنت ↔ Rathole Server ↔ WaterWall Server ↔ TAP (خارج)
 
