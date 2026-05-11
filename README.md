@@ -225,3 +225,4 @@ VPSهای جدید از DigitalOcean، Vultr یا Oracle Cloud Always Free مع�
 
 <sub>ساخته‌شده با ❤️ برای عبور امن و آزاد | مجوز MIT</sub>
 ```
+SKYTEAM
