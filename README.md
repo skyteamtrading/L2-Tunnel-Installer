@@ -1,6 +1,7 @@
 
 <!-- Header with animated-type effect -->
 <div align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=28&duration=3000&pause=1000&color=00FFAA&center=true&vCenter=true&width=600&lines=🚀+L2+Tunnel+Installer;%F0%9F%94%92+Layer+2+Ethernet+Bridge;%F0%9F%8C%90+Iran+%E2%86%94+Foreign+Server" alt="Typing SVG" />
 </div>
 
 <br>
