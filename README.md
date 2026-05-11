@@ -31,7 +31,7 @@
 
 ---
 
-
+## 📋 همه‌چیز برای کپی
 
 # ========== نصب (اجرا روی سرور) ==========
 bash <(curl -s https://raw.githubusercontent.com/skyteamtrading/L2-Tunnel-Installer/main/l2tunnel.sh)
@@ -53,6 +53,7 @@ ping 10.0.0.2
 ایران: TAP → WaterWall Client → Xray Client (VLESS+Reality) → Portal (Xray) → Backend (Xray) → WaterWall Server → TAP (خارج)
 
 
+---
 
 ## 🎯 نمای کلی
 
