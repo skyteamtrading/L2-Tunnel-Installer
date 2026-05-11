@@ -1,13 +1,3 @@
-با توجه به درخواستتان، یک فایل `README.md` **بسیار کامل و خودکفا** آماده کرده‌ام که هم ظاهر گرافیکی چشم‌نواز را دارد و هم **تمام توضیحات فنی، معماری‌ها، روش‌ها و پرسش‌های متداول** را در خود جای داده است.  
-با این فایل، مخزن شما هم زیبا می‌شود و هم یک مرجع کامل برای هر بیننده خواهد بود – بدون نیاز به کلیک روی لینک‌های جداگانه.
-
----
-
-## 📜 کد نهایی (کامل و خودکفا)
-
-کافی است محتوای فایل `README.md` فعلی را با این کد جایگزین کنید:
-
-```markdown
 <!-- Header with animated-type effect -->
 <div align="center">
   <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=28&duration=3000&pause=1000&color=00FFAA&center=true&vCenter=true&width=600&lines=🚀+L2+Tunnel+Installer;%F0%9F%94%92+Layer+2+Ethernet+Bridge;%F0%9F%8C%90+Iran+%E2%86%94+Foreign+Server" alt="Typing SVG" />
@@ -127,152 +117,110 @@
   
   ```bash
   bash <(curl -s https://raw.githubusercontent.com/skyteamtrading/L2-Tunnel-Installer/main/l2tunnel.sh)
-  ```
-</div>
 
----
 
-## 🧠 روش‌های موجود
+🧠 روش‌های موجود
+۱. Rathole + WaterWall (TAP)
+معماری:
+ایران: TAP ↔ WaterWall Client ↔ Rathole Client ↔ اینترنت ↔ Rathole Server ↔ WaterWall Server ↔ TAP (خارج)
 
-### ۱. Rathole + WaterWall (TAP)
-**معماری:**  
-`ایران: TAP ↔ WaterWall Client ↔ Rathole Client ↔ اینترنت ↔ Rathole Server ↔ WaterWall Server ↔ TAP (خارج)`
+IP خارج: تمیز (در لیست سیاه نباشد)
 
-- **IP خارج:** تمیز (در لیست سیاه نباشد)
-- **امنیت:** ⭐⭐
-- **پیچیدگی:** آسان
-- **مزایا:** راه‌اندازی سریع، بدون نیاز به دامنه
-- **مناسب برای:** زمانی که IP سرور خارج کاملاً سالم است
+امنیت: ⭐⭐
 
-### ۲. CDN (آروان) + WaterWall
-**معماری:**  
-`ایران: TAP ↔ WaterWall Client (WSS) ↔ ArvanCloud CDN ↔ WaterWall Server (WSS) ↔ TAP (خارج)`
+پیچیدگی: آسان
 
-- **IP خارج:** می‌تواند کثیف باشد (پشت CDN مخفی می‌شود)
-- **امنیت:** ⭐⭐⭐
-- **پیچیدگی:** بسیار آسان
-- **پیش‌نیاز:** یک دامنه که در ArvanCloud با پروکسی CDN و SSL **Full (Strict)** تنظیم شده باشد
-- **مزایا:** بدون هزینهٔ اضافه، تأخیر کم به دلیل لبه‌های داخلی آروان
+مزایا: راه‌اندازی سریع، بدون نیاز به دامنه
 
-### ۳. CDN + HalfDuplex + RealityTls (چندلایه)
-**معماری:**  
-`ایران: TAP → HalfDuplex → RealityTls → CDN Client → ArvanCloud → CDN Server → RealityTls → HalfDuplex → TAP (خارج)`
+مناسب برای: زمانی که IP سرور خارج کاملاً سالم است
 
-- **IP خارج:** کثیف
-- **امنیت:** ⭐⭐⭐⭐ (چهار لایه پنهان‌سازی)
-- **پیچیدگی:** متوسط
-- **MTU پیش‌فرض:** ۱۲۰۰ برای جلوگیری از تکه‌تکه شدن
-- **مزایا:** ضد تحلیل عمیق بسته‌ها، حتی اگر CDN هم مورد بازرسی قرار گیرد
+۲. CDN (آروان) + WaterWall
+معماری:
+ایران: TAP ↔ WaterWall Client (WSS) ↔ ArvanCloud CDN ↔ WaterWall Server (WSS) ↔ TAP (خارج)
 
-### ۴. VLESS Reverse (Xray) + WaterWall
-**معماری:**  
-`ایران: TAP → WaterWall Client → Xray Client (VLESS+Reality) → Portal (Xray) → Backend (Xray) → WaterWall Server → TAP (خارج)`
+IP خارج: می‌تواند کثیف باشد (پشت CDN مخفی می‌شود)
 
-- **نیازمندی‌ها:** یک **سرور پورتال** با IP تمیز و یک **سرور بک‌اند** با IP کثیف
-- **امنیت:** ⭐⭐⭐⭐⭐
-- **پیچیدگی:** پیشرفته
-- **مزایا:** مقیاس‌پذیری بالا، کنترل کامل، امنیت بسیار بالا
+امنیت: ⭐⭐⭐
 
-> **📚 مستندات بیشتر و مثال‌های پیکربندی** در پوشه‌های [docs](docs/) و [examples](examples/) قرار دارند.
+پیچیدگی: بسیار آسان
 
----
+پیش‌نیاز: یک دامنه که در ArvanCloud با پروکسی CDN و SSL Full (Strict) تنظیم شده باشد
 
-## 🧪 تست موفقیت‌آمیز بودن تونل
+مزایا: بدون هزینهٔ اضافه، تأخیر کم به دلیل لبه‌های داخلی آروان
 
+۳. CDN + HalfDuplex + RealityTls (چندلایه)
+معماری:
+ایران: TAP → HalfDuplex → RealityTls → CDN Client → ArvanCloud → CDN Server → RealityTls → HalfDuplex → TAP (خارج)
+
+IP خارج: کثیف
+
+امنیت: ⭐⭐⭐⭐ (چهار لایه پنهان‌سازی)
+
+پیچیدگی: متوسط
+
+MTU پیش‌فرض: ۱۲۰۰ برای جلوگیری از تکه‌تکه شدن
+
+مزایا: ضد تحلیل عمیق بسته‌ها، حتی اگر CDN هم مورد بازرسی قرار گیرد
+
+۴. VLESS Reverse (Xray) + WaterWall
+معماری:
+ایران: TAP → WaterWall Client → Xray Client (VLESS+Reality) → Portal (Xray) → Backend (Xray) → WaterWall Server → TAP (خارج)
+
+نیازمندی‌ها: یک سرور پورتال با IP تمیز و یک سرور بک‌اند با IP کثیف
+
+امنیت: ⭐⭐⭐⭐⭐
+
+پیچیدگی: پیشرفته
+
+مزایا: مقیاس‌پذیری بالا، کنترل کامل، امنیت بسیار بالا
+
+📚 مستندات بیشتر و مثال‌های پیکربندی در پوشه‌های docs و examples قرار دارند.
+
+🧪 تست موفقیت‌آمیز بودن تونل
 <div align="center">
-
-```diff
+diff
 + پس از نصب، از سرور ایران پینگ بگیرید:
   ping 10.0.0.2
 + اگر پاسخ گرفتید، تونل لایهٔ ۲ شما برقرار است! 🎉
-```
-
 </div>
+❓ پرسش‌های متداول (FAQ)
+کدام روش را انتخاب کنم؟
 
----
+IP تمیز ← روش ۱ (ساده و سریع)
 
-## ❓ پرسش‌های متداول (FAQ)
+IP کثیف، هزینهٔ صفر ← روش ۲ (CDN ساده)
 
-**کدام روش را انتخاب کنم؟**
-- IP تمیز ← روش ۱ (ساده و سریع)
-- IP کثیف، هزینهٔ صفر ← روش ۲ (CDN ساده)
-- امنیت بسیار بالا + IP کثیف ← روش ۳ (چندلایه)
-- کنترل کامل و حرفه‌ای ← روش ۴ (VLESS Reverse)
+امنیت بسیار بالا + IP کثیف ← روش ۳ (چندلایه)
 
-**چرا MTU روی ۱۲۰۰ تنظیم می‌شود؟**  
+کنترل کامل و حرفه‌ای ← روش ۴ (VLESS Reverse)
+
+چرا MTU روی ۱۲۰۰ تنظیم می‌شود؟
 به دلیل لایه‌های متعدد کپسوله‌سازی، بسته‌های بزرگ ممکن است تکه‌تکه شوند. کاهش MTU از افت بسته جلوگیری می‌کند.
 
-**آیا می‌توان از دامنه رایگان استفاده کرد؟**  
-بله، سرویس‌هایی مانند `freedns.afraid.org` ساب‌دامین رایگان می‌دهند، اما دامنهٔ واقعی پایدارتر است.
+آیا می‌توان از دامنه رایگان استفاده کرد؟
+بله، سرویس‌هایی مانند freedns.afraid.org ساب‌دامین رایگان می‌دهند، اما دامنهٔ واقعی پایدارتر است.
 
-**اگر سرعت پایین بود چه کنم؟**  
-- از روش CDN با SNI یک سایت ایرانی (مثلاً `www.aparat.com`) استفاده کنید.  
-- سرور خارج را به موقعیتی نزدیک‌تر به ایران ببرید.
+اگر سرعت پایین بود چه کنم؟
 
-**چطور IP تمیز برای پورتال تهیه کنم؟**  
+از روش CDN با SNI یک سایت ایرانی (مثلاً www.aparat.com) استفاده کنید.
+
+سرور خارج را به موقعیتی نزدیک‌تر به ایران ببرید.
+
+چطور IP تمیز برای پورتال تهیه کنم؟
 VPSهای جدید از DigitalOcean، Vultr یا Oracle Cloud Always Free معمولاً IPهای تمیز دارند. قبل از استفاده تست کنید.
 
----
+🔧 نکات فنی مهم
+در روش‌های CDN، دامنه باید در ArvanCloud روی حالت SSL Full (Strict) تنظیم شده و پروکسی (ابر نارنجی) فعال باشد.
 
-## 🔧 نکات فنی مهم
+رمزهای پیش‌فرض در فایل‌های JSON (MyCDNpass, MyHDpass, MyRLpass) را می‌توانید تغییر دهید، اما باید در دو طرف یکسان باشند.
 
-- در روش‌های CDN، دامنه **باید** در ArvanCloud روی حالت **SSL Full (Strict)** تنظیم شده و پروکسی (ابر نارنجی) فعال باشد.
-- رمزهای پیش‌فرض در فایل‌های JSON (`MyCDNpass`, `MyHDpass`, `MyRLpass`) را می‌توانید تغییر دهید، اما باید در دو طرف یکسان باشند.
-- در روش VLESS Reverse، **UUID** و **کلیدهای Reality** باید بین ایران، پورتال و بک‌اند هماهنگ باشند.
+در روش VLESS Reverse، UUID و کلیدهای Reality باید بین ایران، پورتال و بک‌اند هماهنگ باشند.
 
----
+📚 مستندات تکمیلی
+<div align="center"> <a href="docs/METHOD1_RATHOLE.md"> <img src="https://img.shields.io/badge/روش_۱-Rathole_+_WaterWall-blue?style=for-the-badge" alt="method1" /> </a> <a href="docs/METHOD2_CDN.md"> <img src="https://img.shields.io/badge/روش_۲-CDN_ساده-orange?style=for-the-badge" alt="method2" /> </a> <a href="docs/METHOD3_MULTILAYER.md"> <img src="https://img.shields.io/badge/روش_۳-چندلایه-red?style=for-the-badge" alt="method3" /> </a> <a href="docs/METHOD4_VLESS_REVERSE.md"> <img src="https://img.shields.io/badge/روش_۴-VLESS_Reverse-purple?style=for-the-badge" alt="method4" /> </a> <a href="docs/FAQ.md"> <img src="https://img.shields.io/badge/❓_FAQ-green?style=for-the-badge" alt="faq" /> </a> </div>
+🤝 مشارکت و حمایت
+<div align="center"> <a href="https://github.com/skyteamtrading/L2-Tunnel-Installer/issues"> <img src="https://img.shields.io/badge/گزارش_باگ_یا_پیشنهاد-اینجا-red?style=for-the-badge&logo=github" alt="issues" /> </a> &nbsp;&nbsp; <a href="CONTRIBUTING.md"> <img src="https://img.shields.io/badge/راهنمای_مشارکت-مشاهده-blue?style=for-the-badge&logo=handshake" alt="contributing" /> </a> </div>
+<div align="center"> <p>⭐ اگر این پروژه برایتان مفید بود، لطفاً ستاره بدهید!</p> <img src="https://img.shields.io/github/stars/skyteamtrading/L2-Tunnel-Installer?style=social" alt="stars" /> </div>
+<div align="center"> <sub>ساخته‌شده با ❤️ برای عبور امن و آزاد | مجوز MIT</sub> </div> ```
+✨.
 
-## 📚 مستندات تکمیلی
-
-<div align="center">
-  <a href="docs/METHOD1_RATHOLE.md">
-    <img src="https://img.shields.io/badge/روش_۱-Rathole_+_WaterWall-blue?style=for-the-badge" alt="method1" />
-  </a>
-  <a href="docs/METHOD2_CDN.md">
-    <img src="https://img.shields.io/badge/روش_۲-CDN_ساده-orange?style=for-the-badge" alt="method2" />
-  </a>
-  <a href="docs/METHOD3_MULTILAYER.md">
-    <img src="https://img.shields.io/badge/روش_۳-چندلایه-red?style=for-the-badge" alt="method3" />
-  </a>
-  <a href="docs/METHOD4_VLESS_REVERSE.md">
-    <img src="https://img.shields.io/badge/روش_۴-VLESS_Reverse-purple?style=for-the-badge" alt="method4" />
-  </a>
-  <a href="docs/FAQ.md">
-    <img src="https://img.shields.io/badge/❓_FAQ-green?style=for-the-badge" alt="faq" />
-  </a>
-</div>
-
----
-
-## 🤝 مشارکت و حمایت
-
-<div align="center">
-  <a href="https://github.com/skyteamtrading/L2-Tunnel-Installer/issues">
-    <img src="https://img.shields.io/badge/گزارش_باگ_یا_پیشنهاد-اینجا-red?style=for-the-badge&logo=github" alt="issues" />
-  </a>
-  &nbsp;&nbsp;
-  <a href="CONTRIBUTING.md">
-    <img src="https://img.shields.io/badge/راهنمای_مشارکت-مشاهده-blue?style=for-the-badge&logo=handshake" alt="contributing" />
-  </a>
-</div>
-
-<br>
-
-<div align="center">
-  <p>⭐ اگر این پروژه برایتان مفید بود، لطفاً ستاره بدهید!</p>
-  <img src="https://img.shields.io/github/stars/skyteamtrading/L2-Tunnel-Installer?style=social" alt="stars" />
-</div>
-
----
-
-<div align="center">
-  <sub>ساخته‌شده با ❤️ برای عبور امن و آزاد | مجوز MIT</sub>
-</div>
-```
-
----
-
-## ✨ نتیجه
-
-این فایل هم **ظاهر گرافیکی مدرن و چشم‌نواز** را دارد و هم **تمامی اطلاعات ضروری** (معماری‌ها، روش‌ها، FAQ، نکات فنی) را پوشش می‌دهد. مخزن شما اکنون یک پنل کامل و حرفه‌ای است که هر کاربری با یک نگاه همه چیز را می‌فهمد.  
-اگر نیاز به افزودن جزئیات بیشتر دارید، یا می‌خواهید یک فایل جداگانه برای توضیحات مفصل‌تر بسازیم، در خدمت‌تان هستم.
