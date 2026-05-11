@@ -23,7 +23,7 @@
 ---
 
 <p align="center">
-  <a href="#-همه‌چیز-برای-کپی">📋 همه‌چیز برای کپی</a> &nbsp;&nbsp;
+ 
   <a href="#⚡-نصب-سریع">🚀 نصب سریع</a> &nbsp;&nbsp;
   <a href="#🧠-روش‌های-موجود">📚 روش‌ها</a> &nbsp;&nbsp;
   <a href="https://github.com/skyteamtrading/L2-Tunnel-Installer/issues">🐛 گزارش باگ</a>
@@ -34,8 +34,6 @@
 
 
 
-# ========== تست تونل (از سرور ایران) ==========
-ping 10.0.0.2
 
 # ========== معماری روش‌ها (برای مستندات) ==========
 # روش ۱: Rathole + WaterWall
