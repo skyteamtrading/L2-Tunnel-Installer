@@ -1,11 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
+# ============================================
+# L2 Tunnel Installer with Advanced Menu
+# Version 2.1 - Custom passwords via panel
+# ============================================
+
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 err()  { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
+# Global variables
 METHOD=""
 ROLE=""
 WATERWALL_DIR="/etc/waterwall"
@@ -13,14 +19,28 @@ RATHOLE_DIR="/etc/rathole"
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 BIN_DIR="/usr/local/bin"
 RATHOLE_PORT=443
+DOMAIN=""
+KHAREJ_IP=""
+CDN_PASS=""
+HD_PASS=""
+RL_PASS=""
+RATHOLE_TOKEN=""
 
-function install_pkgs() {
+# Ensure whiptail is installed
+if ! command -v whiptail &> /dev/null; then
+    echo "Installing whiptail..."
+    apt update && apt install -y whiptail
+fi
+
+# ==================== UTILITY FUNCTIONS ====================
+
+install_pkgs() {
     info "Updating packages..."
     apt update && apt upgrade -y
-    apt install -y wget unzip openssl jq
+    apt install -y wget unzip openssl jq curl socat
 }
 
-function download_waterwall() {
+download_waterwall() {
     if [ -f "$BIN_DIR/WaterWall" ]; then
         info "WaterWall already installed."
     else
@@ -35,7 +55,7 @@ function download_waterwall() {
     fi
 }
 
-function download_rathole() {
+download_rathole() {
     if [ -f "$BIN_DIR/rathole" ]; then
         info "Rathole already installed."
     else
@@ -50,30 +70,37 @@ function download_rathole() {
     fi
 }
 
-function install_xray() {
+install_xray() {
     if [ -f "$BIN_DIR/xray" ]; then
         info "Xray already installed."
     else
-        info "Installing Xray via official script..."
+        info "Installing Xray..."
         bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
         info "Xray installed."
     fi
 }
 
-function generate_ssl_cert() {
+get_letsencrypt_cert() {
     local domain=$1
-    mkdir -p /etc/ssl/{private,certs}
-    if [ ! -f "/etc/ssl/certs/fullchain.pem" ]; then
-        info "Generating self-signed SSL certificate for $domain..."
-        openssl req -x509 -newkey rsa:4096 \
-            -keyout /etc/ssl/private/privkey.pem \
-            -out /etc/ssl/certs/fullchain.pem \
-            -days 3650 -nodes \
-            -subj "/CN=$domain"
+    if [ -f "/etc/letsencrypt/live/$domain/fullchain.pem" ]; then
+        info "Let's Encrypt certificate already exists for $domain"
+        return
+    fi
+    info "Obtaining Let's Encrypt certificate for $domain..."
+    apt install -y certbot
+    systemctl stop nginx apache2 2>/dev/null || true
+    certbot certonly --standalone --non-interactive --agree-tos --email admin@$domain -d $domain
+    if [ $? -eq 0 ]; then
+        ln -sf "/etc/letsencrypt/live/$domain/fullchain.pem" /etc/ssl/certs/fullchain.pem
+        ln -sf "/etc/letsencrypt/live/$domain/privkey.pem" /etc/ssl/private/privkey.pem
+        info "Certificate obtained and linked."
+    else
+        warn "Let's Encrypt failed, using self-signed (CDN may reject)."
+        openssl req -x509 -newkey rsa:4096 -keyout /etc/ssl/private/privkey.pem -out /etc/ssl/certs/fullchain.pem -days 3650 -nodes -subj "/CN=$domain"
     fi
 }
 
-function create_service() {
+create_service() {
     local name=$1
     local exec_cmd=$2
     cat > "/etc/systemd/system/${name}.service" <<EOF
@@ -94,7 +121,7 @@ EOF
     info "Service ${name} created."
 }
 
-function stop_disable_service() {
+stop_disable_service() {
     local name=$1
     systemctl stop "$name" 2>/dev/null || true
     systemctl disable "$name" 2>/dev/null || true
@@ -102,63 +129,65 @@ function stop_disable_service() {
     systemctl daemon-reload
 }
 
-# --------------- METHOD 1 : Rathole + WaterWall (TAP) ---------------
+# ==================== CONFIGURATION METHODS ====================
+
 config_method1_rathole() {
     info "Configuring Method 1: Rathole + WaterWall (TAP)..."
+    mkdir -p "$RATHOLE_DIR"
     if [ "$ROLE" = "kharej" ]; then
         cat > "$RATHOLE_DIR/server.toml" <<EOF
 [server]
 bind_addr = "0.0.0.0:${RATHOLE_PORT}"
-[server.services.tap]
-bind_addr = "0.0.0.0:${RATHOLE_PORT}"
+[server.services.waterwall]
+token = "${RATHOLE_TOKEN}"
+connect_addr = "127.0.0.1:4433"
 EOF
         create_service "rathole" "$BIN_DIR/rathole $RATHOLE_DIR/server.toml"
-
-        cat > "$WATERWALL_DIR/server_tap.json" <<EOF
+        cat > "$WATERWALL_DIR/server.json" <<EOF
 {
-    "name": "rathole_to_tap",
+    "name": "rathole_waterwall_server",
     "type": "Tunnel",
     "inbound": { "type": "TCP", "port": 4433 },
     "outbound": { "type": "TAP", "name": "tap0", "mtu": 1400, "ip": "10.0.0.2", "netmask": "255.255.255.252" }
 }
 EOF
-        create_service "waterwall" "$BIN_DIR/WaterWall $WATERWALL_DIR/server_tap.json"
+        create_service "waterwall" "$BIN_DIR/WaterWall $WATERWALL_DIR/server.json"
     else
-        local kharej_ip=$1
         cat > "$RATHOLE_DIR/client.toml" <<EOF
 [client]
-remote_addr = "${kharej_ip}:${RATHOLE_PORT}"
-[client.services.tap]
+remote_addr = "${KHAREJ_IP}:${RATHOLE_PORT}"
+[client.services.waterwall]
+token = "${RATHOLE_TOKEN}"
 local_addr = "127.0.0.1:4433"
-remote_addr = "127.0.0.1:4433"
 EOF
         create_service "rathole" "$BIN_DIR/rathole $RATHOLE_DIR/client.toml"
-
-        cat > "$WATERWALL_DIR/client_tap.json" <<EOF
+        cat > "$WATERWALL_DIR/client.json" <<EOF
 {
-    "name": "tap_to_rathole",
+    "name": "rathole_waterwall_client",
     "type": "Tunnel",
     "inbound": { "type": "TAP", "name": "tap0", "mtu": 1400, "ip": "10.0.0.1", "netmask": "255.255.255.252" },
     "outbound": { "type": "TCP", "address": "127.0.0.1:4433" }
 }
 EOF
-        create_service "waterwall" "$BIN_DIR/WaterWall $WATERWALL_DIR/client_tap.json"
+        create_service "waterwall" "$BIN_DIR/WaterWall $WATERWALL_DIR/client.json"
     fi
 }
 
-# --------------- METHOD 2 : CDN Simple ---------------
-config_method2_cdn() {
+config_method2_cdn_simple() {
     info "Configuring Method 2: CDN + WaterWall (Simple)..."
-    local domain=$1
     if [ "$ROLE" = "kharej" ]; then
-        generate_ssl_cert "$domain"
+        get_letsencrypt_cert "$DOMAIN"
         cat > "$WATERWALL_DIR/server_cdn.json" <<EOF
 {
-    "name": "cdn_to_tap",
+    "name": "cdn_waterwall_server",
     "type": "Tunnel",
     "inbound": {
-        "type": "CDN", "password": "MyCDNpass", "port": 443, "tls": true,
-        "cert": "/etc/ssl/certs/fullchain.pem", "key": "/etc/ssl/private/privkey.pem"
+        "type": "CDN",
+        "password": "${CDN_PASS}",
+        "port": 443,
+        "tls": true,
+        "cert": "/etc/ssl/certs/fullchain.pem",
+        "key": "/etc/ssl/private/privkey.pem"
     },
     "outbound": { "type": "TAP", "name": "tap0", "mtu": 1400, "ip": "10.0.0.2", "netmask": "255.255.255.252" }
 }
@@ -167,349 +196,419 @@ EOF
     else
         cat > "$WATERWALL_DIR/client_cdn.json" <<EOF
 {
-    "name": "tap_to_cdn",
+    "name": "cdn_waterwall_client",
     "type": "Tunnel",
     "inbound": { "type": "TAP", "name": "tap0", "mtu": 1400, "ip": "10.0.0.1", "netmask": "255.255.255.252" },
-    "outbound": { "type": "CDN", "password": "MyCDNpass", "address": "${domain}:443", "sni": "${domain}" }
+    "outbound": {
+        "type": "CDN",
+        "password": "${CDN_PASS}",
+        "address": "${DOMAIN}:443",
+        "sni": "${DOMAIN}"
+    }
 }
 EOF
         create_service "waterwall" "$BIN_DIR/WaterWall $WATERWALL_DIR/client_cdn.json"
     fi
 }
 
-# --------------- METHOD 3 : CDN Multi-layer ---------------
 config_method3_multilayer() {
-    info "Configuring Method 3: CDN + HalfDuplex + RealityTls + WaterWall..."
-    local domain=$1
+    info "Configuring Method 3: CDN + HalfDuplex + RealityTls..."
     if [ "$ROLE" = "kharej" ]; then
-        generate_ssl_cert "$domain"
-        cat > "$WATERWALL_DIR/layer1_hd.json" <<EOF
-{"name":"hd_to_tap","type":"Tunnel","inbound":{"type":"HalfDuplex","password":"MyHDpass","port":5000},"outbound":{"type":"TAP","name":"tap0","mtu":1200,"ip":"10.0.0.2","netmask":"255.255.255.252"}}
+        get_letsencrypt_cert "$DOMAIN"
+        cat > "$WATERWALL_DIR/multilayer_server.json" <<EOF
+{
+    "name": "multilayer_server",
+    "type": "Tunnel",
+    "inbound": {
+        "type": "CDN",
+        "password": "${CDN_PASS}",
+        "port": 443,
+        "tls": true,
+        "cert": "/etc/ssl/certs/fullchain.pem",
+        "key": "/etc/ssl/private/privkey.pem"
+    },
+    "routes": [
+        { "type": "RealityTls", "password": "${RL_PASS}", "address": "127.0.0.1:4433" }
+    ],
+    "outbound": { "type": "HalfDuplex", "password": "${HD_PASS}", "address": "127.0.0.1:5000" }
+}
 EOF
-        cat > "$WATERWALL_DIR/layer2_reality.json" <<EOF
-{"name":"rl_to_hd","type":"Tunnel","inbound":{"type":"RealityTls","password":"MyRLpass","port":4433},"outbound":{"type":"HalfDuplex","password":"MyHDpass","address":"127.0.0.1:5000"}}
-EOF
-        cat > "$WATERWALL_DIR/layer3_cdn.json" <<EOF
-{"name":"cdn_to_rl","type":"Tunnel","inbound":{"type":"CDN","password":"MyCDNpass","port":443,"tls":true,"cert":"/etc/ssl/certs/fullchain.pem","key":"/etc/ssl/private/privkey.pem"},"outbound":{"type":"RealityTls","password":"MyRLpass","address":"127.0.0.1:4433"}}
+        cat > "$WATERWALL_DIR/multilayer_server_tap.json" <<EOF
+{
+    "name": "tap_from_hd",
+    "type": "Tunnel",
+    "inbound": { "type": "HalfDuplex", "password": "${HD_PASS}", "port": 5000 },
+    "outbound": { "type": "TAP", "name": "tap0", "mtu": 1200, "ip": "10.0.0.2", "netmask": "255.255.255.252" }
+}
 EOF
         stop_disable_service "waterwall"
-        create_service "waterwall-l1" "$BIN_DIR/WaterWall $WATERWALL_DIR/layer1_hd.json"
-        create_service "waterwall-l2" "$BIN_DIR/WaterWall $WATERWALL_DIR/layer2_reality.json"
-        create_service "waterwall-l3" "$BIN_DIR/WaterWall $WATERWALL_DIR/layer3_cdn.json"
+        create_service "waterwall-cdn" "$BIN_DIR/WaterWall $WATERWALL_DIR/multilayer_server.json"
+        create_service "waterwall-tap" "$BIN_DIR/WaterWall $WATERWALL_DIR/multilayer_server_tap.json"
     else
-        cat > "$WATERWALL_DIR/layer1_hd.json" <<EOF
-{"name":"tap_to_hd","type":"Tunnel","inbound":{"type":"TAP","name":"tap0","mtu":1200,"ip":"10.0.0.1","netmask":"255.255.255.252"},"outbound":{"type":"HalfDuplex","password":"MyHDpass","address":"127.0.0.1:5000"}}
+        cat > "$WATERWALL_DIR/multilayer_client_tap.json" <<EOF
+{
+    "name": "tap_to_hd",
+    "type": "Tunnel",
+    "inbound": { "type": "TAP", "name": "tap0", "mtu": 1200, "ip": "10.0.0.1", "netmask": "255.255.255.252" },
+    "outbound": { "type": "HalfDuplex", "password": "${HD_PASS}", "address": "127.0.0.1:5000" }
+}
 EOF
-        cat > "$WATERWALL_DIR/layer2_reality.json" <<EOF
-{"name":"hd_to_rl","type":"Tunnel","inbound":{"type":"HalfDuplex","password":"MyHDpass","port":5000},"outbound":{"type":"RealityTls","password":"MyRLpass","address":"127.0.0.1:4433","sni":"www.google.com","fingerprint":"chrome"}}
+        cat > "$WATERWALL_DIR/multilayer_client_hd.json" <<EOF
+{
+    "name": "hd_to_rl",
+    "type": "Tunnel",
+    "inbound": { "type": "HalfDuplex", "password": "${HD_PASS}", "port": 5000 },
+    "outbound": { "type": "RealityTls", "password": "${RL_PASS}", "address": "127.0.0.1:4433", "sni": "www.google.com", "fingerprint": "chrome" }
+}
 EOF
-        cat > "$WATERWALL_DIR/layer3_cdn.json" <<EOF
-{"name":"rl_to_cdn","type":"Tunnel","inbound":{"type":"RealityTls","password":"MyRLpass","port":4433},"outbound":{"type":"CDN","password":"MyCDNpass","address":"${domain}:443","sni":"${domain}"}}
+        cat > "$WATERWALL_DIR/multilayer_client_cdn.json" <<EOF
+{
+    "name": "rl_to_cdn",
+    "type": "Tunnel",
+    "inbound": { "type": "RealityTls", "password": "${RL_PASS}", "port": 4433 },
+    "outbound": { "type": "CDN", "password": "${CDN_PASS}", "address": "${DOMAIN}:443", "sni": "${DOMAIN}" }
+}
 EOF
         stop_disable_service "waterwall"
-        create_service "waterwall-l1" "$BIN_DIR/WaterWall $WATERWALL_DIR/layer1_hd.json"
-        create_service "waterwall-l2" "$BIN_DIR/WaterWall $WATERWALL_DIR/layer2_reality.json"
-        create_service "waterwall-l3" "$BIN_DIR/WaterWall $WATERWALL_DIR/layer3_cdn.json"
+        create_service "waterwall-tap" "$BIN_DIR/WaterWall $WATERWALL_DIR/multilayer_client_tap.json"
+        create_service "waterwall-hd" "$BIN_DIR/WaterWall $WATERWALL_DIR/multilayer_client_hd.json"
+        create_service "waterwall-cdn" "$BIN_DIR/WaterWall $WATERWALL_DIR/multilayer_client_cdn.json"
     fi
 }
 
-# --------------- METHOD 4 : VLESS Reverse + WaterWall ---------------
 config_method4_vless_reverse() {
-    info "Configuring Method 4: VLESS Reverse + WaterWall (TAP)..."
+    info "Configuring Method 4: VLESS Reverse + WaterWall..."
     install_xray
     systemctl stop xray 2>/dev/null || true
     systemctl disable xray 2>/dev/null || true
 
     if [ "$ROLE" = "iran" ]; then
-        read -p "Portal domain or IP: " portal_addr
-        read -p "VLESS UUID (leave blank to generate): " uuid
+        portal_addr=$(whiptail --inputbox "Portal domain or IP:" 8 50 --title "VLESS Iran" 3>&1 1>&2 2>&3)
+        uuid=$(whiptail --inputbox "VLESS UUID (leave blank to generate):" 8 50 --title "UUID" 3>&1 1>&2 2>&3)
         uuid=${uuid:-$(cat /proc/sys/kernel/random/uuid)}
-        read -p "Reality public key (from Portal): " pub_key
-        read -p "Reality shortId (from Portal): " short_id
-        read -p "Reality serverName (e.g., www.google.com): " server_name
-        server_name=${server_name:-www.google.com}
+        pub_key=$(whiptail --inputbox "Reality public key (from Portal):" 8 50 --title "Public Key" 3>&1 1>&2 2>&3)
+        short_id=$(whiptail --inputbox "Reality shortId (from Portal):" 8 50 --title "ShortId" 3>&1 1>&2 2>&3)
+        server_name=$(whiptail --inputbox "Reality serverName (e.g., www.google.com):" 8 50 "www.google.com" --title "Server Name" 3>&1 1>&2 2>&3)
 
-        cat > "$WATERWALL_DIR/client_tap.json" <<EOF
+        cat > "$WATERWALL_DIR/iran_tap.json" <<EOF
 {
-    "name": "tap_to_xray",
+    "name": "iran_tap_to_xray",
     "type": "Tunnel",
     "inbound": { "type": "TAP", "name": "tap0", "mtu": 1400, "ip": "10.0.0.1", "netmask": "255.255.255.252" },
     "outbound": { "type": "TCP", "address": "127.0.0.1:4433" }
 }
 EOF
         stop_disable_service "waterwall"
-        create_service "waterwall" "$BIN_DIR/WaterWall $WATERWALL_DIR/client_tap.json"
+        create_service "waterwall" "$BIN_DIR/WaterWall $WATERWALL_DIR/iran_tap.json"
 
         cat > "$XRAY_CONFIG" <<EOF
 {
   "log": { "loglevel": "warning" },
-  "inbounds": [
-    {
-      "port": 4433,
-      "protocol": "dokodemo-door",
-      "settings": { "address": "127.0.0.1", "port": 4433, "network": "tcp" },
-      "tag": "local_in"
-    }
-  ],
-  "outbounds": [
-    {
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "${portal_addr}",
-            "port": 443,
-            "users": [
-              {
-                "id": "${uuid}",
-                "encryption": "none",
-                "flow": "xtls-rprx-vision"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "reality",
-        "realitySettings": {
-          "show": false,
-          "serverName": "${server_name}",
-          "fingerprint": "chrome",
-          "publicKey": "${pub_key}",
-          "shortId": "${short_id}",
-          "spiderX": "/"
-        }
-      },
-      "tag": "proxy"
-    }
-  ]
+  "inbounds": [{
+    "port": 4433,
+    "protocol": "dokodemo-door",
+    "settings": { "address": "127.0.0.1", "port": 1080, "network": "tcp" },
+    "tag": "local_in"
+  }],
+  "outbounds": [{
+    "protocol": "vless",
+    "settings": {
+      "vnext": [{
+        "address": "${portal_addr}",
+        "port": 443,
+        "users": [{ "id": "${uuid}", "encryption": "none", "flow": "xtls-rprx-vision" }]
+      }]
+    },
+    "streamSettings": {
+      "network": "tcp",
+      "security": "reality",
+      "realitySettings": {
+        "show": false,
+        "serverName": "${server_name}",
+        "fingerprint": "chrome",
+        "publicKey": "${pub_key}",
+        "shortId": "${short_id}",
+        "spiderX": "/"
+      }
+    },
+    "tag": "proxy"
+  }]
 }
 EOF
         systemctl enable xray
         systemctl start xray
-        info "Xray client started."
 
     elif [ "$ROLE" = "portal" ]; then
-        read -p "Backend IP (dirty IP): " backend_ip
-        read -p "VLESS UUID (leave blank to generate): " uuid
+        backend_ip=$(whiptail --inputbox "Backend IP (dirty IP):" 8 50 --title "Backend Address" 3>&1 1>&2 2>&3)
+        uuid=$(whiptail --inputbox "VLESS UUID (leave blank to generate):" 8 50 --title "UUID" 3>&1 1>&2 2>&3)
         uuid=${uuid:-$(cat /proc/sys/kernel/random/uuid)}
-        read -p "Reality private key (generate? [y/n]): " gen_key
-        if [ "$gen_key" = "y" ]; then
+        priv_key=$(whiptail --inputbox "Reality private key (press enter to generate):" 8 50 --title "Private Key" 3>&1 1>&2 2>&3)
+        if [ -z "$priv_key" ]; then
             keys=$(xray x25519)
             priv_key=$(echo "$keys" | grep "Private" | awk '{print $3}')
             pub_key=$(echo "$keys" | grep "Public" | awk '{print $3}')
+            whiptail --msgbox "Generated Public Key: $pub_key\nSave this for Iran client." 10 60
         else
-            read -p "Private key: " priv_key
-            read -p "Public key: " pub_key
+            pub_key=$(whiptail --inputbox "Public key:" 8 50 --title "Public Key" 3>&1 1>&2 2>&3)
         fi
-        read -p "ShortId (random string, e.g., abc123): " short_id
-        read -p "Reality serverName (e.g., www.google.com): " server_name
-        server_name=${server_name:-www.google.com}
-
-        echo -e "${GREEN}Reality Public Key: ${pub_key}${NC}"
-        echo -e "${GREEN}ShortId: ${short_id}${NC}"
-        echo -e "${GREEN}UUID: ${uuid}${NC}"
+        short_id=$(whiptail --inputbox "ShortId (random string):" 8 50 --title "ShortId" 3>&1 1>&2 2>&3)
+        server_name=$(whiptail --inputbox "Reality serverName (e.g., www.google.com):" 8 50 "www.google.com" --title "Server Name" 3>&1 1>&2 2>&3)
 
         cat > "$XRAY_CONFIG" <<EOF
 {
   "log": { "loglevel": "warning" },
-  "inbounds": [
-    {
-      "port": 443,
-      "protocol": "vless",
-      "settings": {
-        "clients": [{ "id": "${uuid}", "flow": "xtls-rprx-vision" }],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "reality",
-        "realitySettings": {
-          "show": false,
-          "dest": "127.0.0.1:8443",
-          "xver": 0,
-          "serverNames": ["${server_name}"],
-          "privateKey": "${priv_key}",
-          "shortIds": ["${short_id}"]
-        }
-      },
-      "tag": "inbound_portal"
-    }
-  ],
-  "outbounds": [
-    {
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "${backend_ip}",
-            "port": 8443,
-            "users": [{ "id": "${uuid}", "encryption": "none" }]
-          }
-        ]
-      },
-      "streamSettings": { "network": "tcp", "security": "none" },
-      "tag": "to_backend"
-    }
-  ],
-  "reverse": {
-    "bridges": [{ "tag": "bridge", "domain": "reverse-proxy.internal" }]
-  }
+  "inbounds": [{
+    "port": 443,
+    "protocol": "vless",
+    "settings": {
+      "clients": [{ "id": "${uuid}", "flow": "xtls-rprx-vision" }],
+      "decryption": "none"
+    },
+    "streamSettings": {
+      "network": "tcp",
+      "security": "reality",
+      "realitySettings": {
+        "show": false,
+        "dest": "${backend_ip}:8443",
+        "xver": 0,
+        "serverNames": ["${server_name}"],
+        "privateKey": "${priv_key}",
+        "shortIds": ["${short_id}"]
+      }
+    },
+    "tag": "in_portal"
+  }],
+  "outbounds": [{
+    "protocol": "vless",
+    "settings": {
+      "vnext": [{
+        "address": "${backend_ip}",
+        "port": 8443,
+        "users": [{ "id": "${uuid}", "encryption": "none" }]
+      }]
+    },
+    "streamSettings": { "network": "tcp", "security": "none" },
+    "tag": "to_backend"
+  }]
 }
 EOF
         systemctl enable xray
         systemctl start xray
-        info "Xray portal started."
 
     elif [ "$ROLE" = "backend" ]; then
-        read -p "VLESS UUID (same as portal): " uuid
-        uuid=${uuid:-$(cat /proc/sys/kernel/random/uuid)}
-
+        uuid=$(whiptail --inputbox "VLESS UUID (same as portal):" 8 50 --title "UUID" 3>&1 1>&2 2>&3)
         cat > "$XRAY_CONFIG" <<EOF
 {
   "log": { "loglevel": "warning" },
-  "inbounds": [
-    {
-      "port": 8443,
-      "protocol": "vless",
-      "settings": {
-        "clients": [{ "id": "${uuid}", "encryption": "none" }],
-        "decryption": "none"
-      },
-      "streamSettings": { "network": "tcp", "security": "none" },
-      "tag": "inbound_backend"
-    }
-  ],
-  "outbounds": [{ "protocol": "freedom", "settings": {}, "tag": "direct" }],
-  "reverse": {
-    "portals": [{ "tag": "portal", "domain": "reverse-proxy.internal" }]
-  }
+  "inbounds": [{
+    "port": 8443,
+    "protocol": "vless",
+    "settings": {
+      "clients": [{ "id": "${uuid}", "encryption": "none" }],
+      "decryption": "none"
+    },
+    "streamSettings": { "network": "tcp", "security": "none" },
+    "tag": "in_backend"
+  }],
+  "outbounds": [{
+    "protocol": "dokodemo-door",
+    "settings": { "address": "127.0.0.1", "port": 4433, "network": "tcp" },
+    "tag": "to_waterwall"
+  }]
 }
 EOF
         systemctl enable xray
         systemctl start xray
-        info "Xray backend started."
 
-        cat > "$WATERWALL_DIR/server_tap.json" <<EOF
+        cat > "$WATERWALL_DIR/backend_tap.json" <<EOF
 {
-    "name": "xray_to_tap",
+    "name": "backend_waterwall",
     "type": "Tunnel",
     "inbound": { "type": "TCP", "port": 4433 },
     "outbound": { "type": "TAP", "name": "tap0", "mtu": 1400, "ip": "10.0.0.2", "netmask": "255.255.255.252" }
 }
 EOF
         stop_disable_service "waterwall"
-        create_service "waterwall" "$BIN_DIR/WaterWall $WATERWALL_DIR/server_tap.json"
-        info "WaterWall backend server started."
+        create_service "waterwall" "$BIN_DIR/WaterWall $WATERWALL_DIR/backend_tap.json"
     fi
 }
 
-# --------------- MAIN MENU ---------------
-function main_menu() {
-    clear
-    echo -e "${BLUE}============================================${NC}"
-    echo -e "${BLUE}   L2 Tunnel Installer (4 Methods)   ${NC}"
-    echo -e "${BLUE}============================================${NC}"
-    echo ""
-    echo "Choose tunneling method:"
-    echo " 1) Rathole + WaterWall (TAP)"
-    echo " 2) ArvanCloud CDN + WaterWall (Simple)"
-    echo " 3) CDN + HalfDuplex + RealityTls (Ultra Secure)"
-    echo " 4) VLESS Reverse (Xray) + WaterWall (TAP)"
-    echo " 5) Exit"
-    echo ""
-    read -p "Enter choice [1-5]: " method_choice
+# ==================== ADVANCED MENU FUNCTIONS ====================
 
-    case "$method_choice" in
-        1) METHOD="rathole";;
-        2) METHOD="cdn_simple";;
-        3) METHOD="cdn_multilayer";;
-        4) METHOD="vless_reverse";;
-        5) exit 0;;
-        *) err "Invalid option";;
-    esac
-
-    if [ "$METHOD" = "vless_reverse" ]; then
-        echo ""
-        echo "Select server role:"
-        echo " 1) Iran (client)"
-        echo " 2) Portal (clean IP, outside)"
-        echo " 3) Backend (dirty IP, outside)"
-        read -p "Enter role [1-3]: " role_choice
-        case "$role_choice" in
-            1) ROLE="iran";;
-            2) ROLE="portal";;
-            3) ROLE="backend";;
-            *) err "Invalid role";;
-        esac
+view_logs() {
+    local service=$(whiptail --title "View Logs" --menu "Select service:" 15 50 5 \
+        "waterwall" "WaterWall" \
+        "rathole" "Rathole" \
+        "xray" "Xray" \
+        "all" "All services (last 20 lines each)" \
+        3>&1 1>&2 2>&3)
+    if [ "$service" = "all" ]; then
+        logs=""
+        for s in waterwall rathole xray; do
+            logs+="=== $s ===\n$(journalctl -u "$s" -n 20 --no-pager 2>&1)\n\n"
+        done
+        whiptail --title "Logs (all)" --msgbox "$logs" 25 80
     else
-        echo ""
-        echo "Which server is this?"
-        echo " 1) Iran (inside, behind NAT)"
-        echo " 2) Kharej (outside, public IP)"
-        read -p "Enter choice [1-2]: " srv
-        if [ "$srv" = "1" ]; then ROLE="iran"; else ROLE="kharej"; fi
+        logs=$(journalctl -u "$service" -n 50 --no-pager 2>&1)
+        whiptail --title "Logs: $service" --msgbox "$logs" 20 80
+    fi
+}
+
+change_settings() {
+    local new_port=$(whiptail --inputbox "New Rathole port (current: $RATHOLE_PORT):" 8 50 "$RATHOLE_PORT" --title "Change Port" 3>&1 1>&2 2>&3)
+    if [ -n "$new_port" ] && [ "$new_port" != "$RATHOLE_PORT" ]; then
+        RATHOLE_PORT=$new_port
+        whiptail --msgbox "Rathole port updated to $RATHOLE_PORT.\nYou may need to reinstall the tunnel for changes to take effect." 10 50
+    fi
+}
+
+restart_services() {
+    for s in waterwall rathole xray; do
+        systemctl restart $s 2>/dev/null || true
+    done
+    whiptail --msgbox "All services restarted." 8 40
+}
+
+stop_services() {
+    for s in waterwall rathole xray; do
+        systemctl stop $s 2>/dev/null || true
+    done
+    whiptail --msgbox "All services stopped." 8 40
+}
+
+uninstall_everything() {
+    if whiptail --title "Uninstall" --yesno "This will remove all tunnels, TAP interfaces, and services. Continue?" 10 50; then
+        stop_services
+        for s in waterwall rathole xray; do
+            systemctl disable $s 2>/dev/null || true
+            rm -f "/etc/systemd/system/${s}.service"
+        done
+        systemctl daemon-reload
+        rm -rf "$WATERWALL_DIR" "$RATHOLE_DIR"
+        rm -f "$BIN_DIR/WaterWall" "$BIN_DIR/rathole"
+        ip link delete tap0 2>/dev/null || true
+        whiptail --msgbox "Uninstall completed." 8 40
+    fi
+}
+
+install_tunnel() {
+    # 1. Select method
+    METHOD=$(whiptail --title "Select Method" --menu "Tunneling Method" 15 60 4 \
+        "1" "Rathole + WaterWall (TAP)" \
+        "2" "ArvanCloud CDN + WaterWall (Simple)" \
+        "3" "CDN + HalfDuplex + RealityTls (Ultra)" \
+        "4" "VLESS Reverse (Xray) + WaterWall" \
+        3>&1 1>&2 2>&3)
+    [ -z "$METHOD" ] && return
+
+    # 2. Select role
+    if [ "$METHOD" != "4" ]; then
+        ROLE=$(whiptail --title "Server Role" --menu "This server is:" 12 50 2 \
+            "iran" "Iran (inside, behind NAT)" \
+            "kharej" "Kharej (outside, public IP)" \
+            3>&1 1>&2 2>&3)
+    else
+        ROLE=$(whiptail --title "VLESS Role" --menu "Select role:" 12 50 3 \
+            "iran" "Iran Client" \
+            "portal" "Portal (clean IP)" \
+            "backend" "Backend (dirty IP)" \
+            3>&1 1>&2 2>&3)
+    fi
+    [ -z "$ROLE" ] && return
+
+    # 3. Ask for method-specific parameters (including passwords)
+
+    # Method 1: Rathole
+    if [ "$METHOD" = "1" ]; then
+        if [ "$ROLE" = "iran" ]; then
+            KHAREJ_IP=$(whiptail --inputbox "Kharej public IP:" 8 50 --title "Rathole" 3>&1 1>&2 2>&3)
+            [ -z "$KHAREJ_IP" ] && return
+        fi
+        PORT_TMP=$(whiptail --inputbox "Rathole port [443]:" 8 50 "443" --title "Port" 3>&1 1>&2 2>&3)
+        RATHOLE_PORT=${PORT_TMP:-443}
+        RATHOLE_TOKEN=$(whiptail --inputbox "Rathole authentication token (strong password):" 8 50 "MyRatholeToken123" --title "Rathole Token" 3>&1 1>&2 2>&3)
+        [ -z "$RATHOLE_TOKEN" ] && RATHOLE_TOKEN="MyRatholeToken123"
     fi
 
-    local kharej_ip=""
-    local domain=""
+    # Methods 2 & 3: CDN based
+    if [ "$METHOD" = "2" ] || [ "$METHOD" = "3" ]; then
+        DOMAIN=$(whiptail --inputbox "Your domain (e.g., vpn.domain.com):" 8 50 --title "CDN Domain" 3>&1 1>&2 2>&3)
+        [ -z "$DOMAIN" ] && return
+        CDN_PASS=$(whiptail --passwordbox "CDN password (WaterWall authentication):" 8 50 --title "CDN Password" 3>&1 1>&2 2>&3)
+        [ -z "$CDN_PASS" ] && CDN_PASS="MyCDNpass"
+        if [ "$METHOD" = "3" ]; then
+            HD_PASS=$(whiptail --passwordbox "HalfDuplex password:" 8 50 --title "HalfDuplex Password" 3>&1 1>&2 2>&3)
+            [ -z "$HD_PASS" ] && HD_PASS="MyHDpass"
+            RL_PASS=$(whiptail --passwordbox "RealityTls password:" 8 50 --title "RealityTls Password" 3>&1 1>&2 2>&3)
+            [ -z "$RL_PASS" ] && RL_PASS="MyRLpass"
+        fi
+    fi
 
-    case "$METHOD" in
-        rathole)
-            if [ "$ROLE" = "iran" ]; then
-                read -p "Kharej public IP: " kharej_ip
-            fi
-            read -p "Rathole port [443]: " tmp; RATHOLE_PORT=${tmp:-443}
-            ;;
-        cdn_simple|cdn_multilayer)
-            read -p "Your domain (e.g., vpn.mydomain.ir): " domain
-            [ -z "$domain" ] && err "Domain required"
-            ;;
-        vless_reverse)
-            ;; # parameters asked inside config
-    esac
+    # Method 4: VLESS Reverse - passwords are not needed here (uses UUID and keys), but we ask nothing extra
 
-    echo ""
-    info "Method: $METHOD, Role: $ROLE"
-    [ -n "$kharej_ip" ] && info "Kharej IP: $kharej_ip"
-    [ -n "$domain" ] && info "Domain: $domain"
-    read -p "Proceed? (y/n): " confirm
-    [ "$confirm" != "y" ] && { echo "Aborted."; exit 1; }
+    whiptail --title "Confirm" --yesno "Method: $METHOD\nRole: $ROLE\nProceed?" 10 50 || return
 
+    # Installation steps
     install_pkgs
     download_waterwall
     mkdir -p "$WATERWALL_DIR"
 
     case "$METHOD" in
-        rathole)
-            download_rathole; mkdir -p "$RATHOLE_DIR"
-            config_method1_rathole "$kharej_ip"
+        1)
+            download_rathole
+            config_method1_rathole
             ;;
-        cdn_simple)
-            config_method2_cdn "$domain"
+        2)
+            config_method2_cdn_simple
             ;;
-        cdn_multilayer)
-            config_method3_multilayer "$domain"
+        3)
+            config_method3_multilayer
             ;;
-        vless_reverse)
+        4)
             config_method4_vless_reverse
             ;;
     esac
 
-    if [ "$ROLE" = "kharej" ] || [ "$ROLE" = "portal" ] || [ "$ROLE" = "backend" ]; then
+    if [[ "$ROLE" =~ ^(kharej|portal|backend)$ ]]; then
         ufw allow 443/tcp 2>/dev/null || true
-        info "Firewall: port 443/tcp opened."
+        info "Port 443 opened."
     fi
 
-    echo ""
-    info "Installation finished."
-    if [ "$METHOD" = "vless_reverse" ]; then
-        echo "Please ensure portal and backend can reach each other on port 8443."
-        echo "Iran pings 10.0.0.2 after setup."
-    else
-        echo "Ping 10.0.0.2 from Iran to test."
-    fi
+    whiptail --msgbox "Installation finished.\nFrom Iran, test with: ping 10.0.0.2" 10 50
 }
+
+# ==================== MAIN MENU ====================
+
+main_menu() {
+    while true; do
+        CHOICE=$(whiptail --title "L2 Tunnel Installer - Advanced Menu v2.1" \
+            --menu "Choose an option:" 18 70 8 \
+            "1" "Install / Configure Tunnel" \
+            "2" "View Logs (WaterWall / Rathole / Xray)" \
+            "3" "Change Settings (Ports)" \
+            "4" "Restart All Services" \
+            "5" "Stop All Services" \
+            "6" "Uninstall Everything" \
+            "7" "Exit" \
+            3>&1 1>&2 2>&3)
+
+        case $CHOICE in
+            1) install_tunnel ;;
+            2) view_logs ;;
+            3) change_settings ;;
+            4) restart_services ;;
+            5) stop_services ;;
+            6) uninstall_everything ;;
+            7) exit 0 ;;
+            *) continue ;;
+        esac
+    done
+}
+
+# Run as root
+if [[ $EUID -ne 0 ]]; then
+    echo -e "${RED}This script must be run as root.${NC}"
+    exit 1
+fi
 
 main_menu
