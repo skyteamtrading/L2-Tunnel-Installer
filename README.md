@@ -31,10 +31,8 @@
 
 ---
 
-## 📋 همه‌چیز برای کپی
 
-# ========== نصب (اجرا روی سرور) ==========
-bash <(curl -s https://raw.githubusercontent.com/skyteamtrading/L2-Tunnel-Installer/main/l2tunnel.sh)
+
 
 # ========== تست تونل (از سرور ایران) ==========
 ping 10.0.0.2
