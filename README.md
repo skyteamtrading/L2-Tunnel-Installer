@@ -1,117 +1,124 @@
+<!-- Header with animated-type effect -->
+<div align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=28&duration=3000&pause=1000&color=00FFAA&center=true&vCenter=true&width=600&lines=🚀+L2+Tunnel+Installer;%F0%9F%94%92+Layer+2+Ethernet+Bridge;%F0%9F%8C%90+Iran+%E2%86%94+Foreign+Server" alt="Typing SVG" />
+</div>
 
-            🚀 نصب‌کنندهٔ تونل لایهٔ ۲ (L2 Tunnel Installer)
+<br>
 
+<p align="center">
+  <a href="https://github.com/skyteamtrading/L2-Tunnel-Installer/releases">
+    <img src="https://img.shields.io/github/v/release/skyteamtrading/L2-Tunnel-Installer?color=blue&label=Latest&style=for-the-badge" alt="release" />
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="license" />
+  </a>
+  <a href="https://github.com/skyteamtrading/L2-Tunnel-Installer/actions/workflows/shellcheck.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/skyteamtrading/L2-Tunnel-Installer/shellcheck.yml?branch=main&style=for-the-badge&label=ShellCheck" alt="ShellCheck" />
+  </a>
+</p>
 
-نسخه: 2.0.0
-مجوز: MIT
+<br>
 
-یک اسکریپت تعاملی Bash برای ایجاد تونل امن لایهٔ ۲ (Ethernet Bridge) بین
-سرور ایران (پشت NAT) و سرور(های) خارج از کشور.
+<div align="center">
+  <pre style="background: linear-gradient(135deg, #0d1117, #161b22); padding: 20px; border-radius: 12px; display: inline-block;">
+  ⚡ یک اسکریپت تعاملی Bash برای ساخت تونل امن لایهٔ ۲ (Ethernet Bridge)
+  بین سرور ایران (پشت NAT) و سرور خارج از کشور – با ۴ روش متفاوت ⚡
+  </pre>
+</div>
 
-با ۴ روش مختلف:
-  ۱. Rathole + WaterWall (TAP)
-  ۲. CDN ابر آروان + WaterWall
-  ۳. CDN + HalfDuplex + RealityTls (چندلایه)
-  ۴. VLESS Reverse (Xray) + WaterWall
+<br>
 
-----------------------------------------------------------------------
-✨ ویژگی‌ها
-----------------------------------------------------------------------
-- پشتیبانی از IP کثیف خارج با CDN ابر آروان یا VLESS Reverse
-- رمزنگاری سرتاسری و لایه‌های پنهان‌سازی
-- نصب خودکار پیش‌نیازها (WaterWall, Rathole, Xray) و راه‌اندازی systemd
-- منوی تعاملی با راهنمای گام‌به‌گام
-- مقاوم در برابر فیلترینگ و تحلیل عمیق بسته‌ها (DPI)
+---
 
-----------------------------------------------------------------------
-⚡ نصب سریع (فقط یک دستور)
-----------------------------------------------------------------------
-bash <(curl -s https://raw.githubusercontent.com/skyteamtrading/L2-Tunnel-Installer/main/l2tunnel.sh)
+<div align="center">
+  <a href="#⚡-نصب-سریع">
+    <img src="https://img.shields.io/badge/🚀_نصب_سریع-کلیک_کنید-00d2ff?style=for-the-badge&logo=rocket&logoColor=white" alt="install" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="docs/">
+    <img src="https://img.shields.io/badge/📚_مستندات-مشاهده-ff8c00?style=for-the-badge&logo=readthedocs&logoColor=white" alt="docs" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/skyteamtrading/L2-Tunnel-Installer/issues">
+    <img src="https://img.shields.io/badge/🐛_گزارش_باگ-اینجا-red?style=for-the-badge&logo=bugatti&logoColor=white" alt="issues" />
+  </a>
+</div>
 
-(نیاز به دسترسی root دارد)
+<br>
 
-----------------------------------------------------------------------
-📋 پیش‌نیازها
-----------------------------------------------------------------------
-- سرور ایران: لینوکس Ubuntu 22.04 یا جدیدتر (بدون نیاز به IP عمومی)
-- سرور خارج: برای روش‌های ۱ و ۴ (پورتال + بک‌اند)
-- یک دامنه برای روش‌های ۲ و ۳ (باید در ArvanCloud تنظیم شود)
-- پورت ۴۴۳ روی سرور خارج (و پورتال) باز باشد
+---
 
-----------------------------------------------------------------------
-🧠 شرح روش‌ها
-----------------------------------------------------------------------
+## 🎯 نمای کلی
 
-روش ۱: Rathole + WaterWall (TAP)
-  - IP خارج باید تمیز باشد (در لیست سیاه نباشد).
-  - معماری: ایران: TAP <-> WaterWall <-> Rathole Client <-- اینترنت --> Rathole Server <-> WaterWall <-> TAP (خارج)
-  - ساده‌ترین روش برای IPهای سالم.
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="200">
+        <img src="https://img.icons8.com/fluency/96/iran.png" width="48"/><br>
+        <b>سرور ایران</b><br>
+        <sub>پشت NAT</sub>
+      </td>
+      <td align="center" width="100">
+        <b>🔗</b><br>
+        <sub>TAP</sub>
+      </td>
+      <td align="center" width="200">
+        <img src="https://img.icons8.com/color/96/waterfall.png" width="48"/><br>
+        <b>WaterWall</b><br>
+        <sub>کپسوله‌سازی</sub>
+      </td>
+      <td align="center" width="100">
+        <b>🔒</b><br>
+        <sub>TLS / WSS</sub>
+      </td>
+      <td align="center" width="200">
+        <img src="https://img.icons8.com/color/96/cloud-backup-restore.png" width="48"/><br>
+        <b>Arvan / Rathole</b><br>
+        <sub>عبور از فیلتر</sub>
+      </td>
+      <td align="center" width="100">
+        <b>🌐</b>
+      </td>
+      <td align="center" width="200">
+        <img src="https://img.icons8.com/fluency/96/globe.png" width="48"/><br>
+        <b>سرور خارج</b><br>
+        <sub>IP تمیز / کثیف</sub>
+      </td>
+    </tr>
+  </table>
+</div>
 
-روش ۲: CDN ساده (ArvanCloud + WaterWall)
-  - IP خارج حتی کثیف هم باشد، ترافیک از IP تمیز آروان عبور می‌کند.
-  - معماری: ایران: TAP <-> WaterWall Client (WSS) <-> ArvanCloud CDN <-> WaterWall Server (WSS) <-> TAP (خارج)
-  - بسیار ساده و بدون هزینهٔ اضافه.
+<br>
 
-روش ۳: CDN + HalfDuplex + RealityTls (چندلایه)
-  - چهار لایه پنهان‌سازی برای امنیت حداکثری.
-  - معماری: ایران: TAP -> HalfDuplex -> RealityTls -> CDN Client -> ArvanCloud -> CDN Server -> RealityTls -> HalfDuplex -> TAP (خارج)
-  - IP خارج می‌تواند کثیف باشد. MTU روی ۱۲۰۰ تنظیم می‌شود.
+---
 
-روش ۴: VLESS Reverse + WaterWall
-  - نیاز به یک سرور پورتال با IP تمیز و یک سرور بک‌اند با IP کثیف.
-  - معماری: ایران: TAP -> WaterWall -> Xray Client (VLESS+Reality) -> Portal (Xray) -> Backend (Xray) -> WaterWall -> TAP (خارج)
-  - بالاترین کنترل و مقیاس‌پذیری، مناسب شبکه‌های بزرگ.
+## ✨ ویژگی‌های کلیدی
 
-----------------------------------------------------------------------
-🧪 تست نهایی
-----------------------------------------------------------------------
-پس از نصب موفق، از سرور ایران دستور زیر را بزنید:
-  ping 10.0.0.2
-اگر پاسخ دریافت کردید، تونل لایهٔ ۲ با موفقیت برقرار است.
+<div align="center">
+  <table>
+    <tr>
+      <td><img src="https://img.icons8.com/color/48/000000/mind-map.png" width="36"/> <b>۴ روش تونل‌زنی</b></td>
+      <td><img src="https://img.icons8.com/color/48/000000/cloud-backup-restore.png" width="36"/> <b>پشتیبانی از IP کثیف</b></td>
+    </tr>
+    <tr>
+      <td><img src="https://img.icons8.com/color/48/000000/encrypted.png" width="36"/> <b>رمزنگاری سرتاسری</b></td>
+      <td><img src="https://img.icons8.com/color/48/000000/automation.png" width="36"/> <b>نصب خودکار</b></td>
+    </tr>
+    <tr>
+      <td><img src="https://img.icons8.com/color/48/000000/console.png" width="36"/> <b>منوی تعاملی</b></td>
+      <td><img src="https://img.icons8.com/color/48/000000/shield.png" width="36"/> <b>ضد فیلترینگ و DPI</b></td>
+    </tr>
+  </table>
+</div>
 
-----------------------------------------------------------------------
-📚 پرسش‌های متداول
-----------------------------------------------------------------------
-کدام روش را انتخاب کنم؟
-  - IP تمیز → روش ۱ (ساده و سریع)
-  - IP کثیف، هزینه کم → روش ۲ (CDN ساده)
-  - امنیت بالا و IP کثیف → روش ۳ (چندلایه)
-  - کنترل کامل و حرفه‌ای → روش ۴ (VLESS Reverse)
+<br>
 
-چرا MTU روی ۱۲۰۰ تنظیم می‌شود؟
-  به‌خاطر لایه‌های متعدد کپسوله‌سازی، بسته‌های بزرگ ممکن است تکه‌تکه شوند.
-  کاهش MTU از افت بسته جلوگیری می‌کند.
+---
 
-آیا می‌توان از دامنه رایگان استفاده کرد؟
-  بله، سرویس‌هایی مانند freedns.afraid.org ساب‌دامین رایگان می‌دهند، اما
-  دامنهٔ واقعی پایدارتر است.
+## ⚡ نصب سریع
 
-اگر سرعت پایین بود چه کنم؟
-  - از روش CDN با SNI یک سایت ایرانی (مثلاً www.aparat.com) استفاده کنید.
-  - سرور خارج را به موقعیتی نزدیک‌تر به ایران ببرید.
-
-چطور می‌توانم IP تمیز برای پورتال تهیه کنم؟
-  - VPSهای جدید از DigitalOcean، Vultr یا Oracle Cloud Always Free
-    معمولاً IPهای تمیز دارند.
-  - از تمیز بودن IP با تست اولیه اطمینان حاصل کنید.
-
-----------------------------------------------------------------------
-🛠️ نکات فنی مهم
-----------------------------------------------------------------------
-- در روش‌های ۲ و ۳، دامنه باید در ArvanCloud روی حالت SSL Full (Strict)
-  تنظیم شده باشد و پروکسی CDN (ابر نارنجی) فعال باشد.
-- رمزهای پیش‌فرض در فایل‌های JSON (MyCDNpass, MyHDpass, MyRLpass)
-  را می‌توانید بعداً تغییر دهید، اما باید در دو طرف یکسان باشند.
-- در روش ۴، UUID و کلیدهای Reality باید بین ایران، پورتال و بک‌اند
-  هماهنگ باشند.
-
-----------------------------------------------------------------------
-🤝 مشارکت و تماس
-----------------------------------------------------------------------
-- مخزن گیت‌هاب: https://github.com/skyteamtrading/L2-Tunnel-Installer
-- پیشنهادات و باگ‌ها: از طریق Issues
-- راهنمای مشارکت: فایل CONTRIBUTING.md
-
-----------------------------------------------------------------------
-ساخته‌شده با ❤️ برای عبور امن و آزاد
-======================================================================
+<div align="center">
+  <p><b>👇 همین یک خط را در ترمینال اجرا کنید (نیاز به دسترسی root)</b></p>
+  
+  ```bash
+  bash <(curl -s https://raw.githubusercontent.com/skyteamtrading/L2-Tunnel-Installer/main/l2tunnel.sh)
